@@ -1,0 +1,10 @@
+# ── .gitignore ──
+venv/
+__pycache__/
+*.pyc
+.env
+data/resumes/*.pdf
+*.egg-info/
+dist/
+build/
+.pytest_cache/

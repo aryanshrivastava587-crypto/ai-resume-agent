@@ -1,0 +1,2 @@
+We are looking for a Python developer with experience in backend development, APIs, SQL, and cloud technologies.
+Knowledge of AI, machine learning, and automation is a plus.
