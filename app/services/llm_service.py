@@ -8,21 +8,23 @@ from app.services.rag_service import create_embeddings, build_index, retrieve
 
 logger = logging.getLogger(__name__)
 
+# ── Gemini Configuration (server-side key) ──
+_api_key = os.getenv("GEMINI_API_KEY")
+if _api_key:
+    genai.configure(api_key=_api_key)
+    logger.info("Gemini API configured with server key.")
+else:
+    logger.warning("GEMINI_API_KEY not set — LLM calls will fail.")
+
+_gemini_model = genai.GenerativeModel("gemini-2.0-flash")
 _JSON_CONFIG = genai.GenerationConfig(response_mime_type="application/json")
 
 
-def _get_model(api_key: str):
-    """Configure Gemini with the user's API key and return a model instance."""
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel("gemini-2.0-flash")
-
-
-def _call_gemini(prompt: str, api_key: str, max_retries: int = 3):
+def _call_gemini(prompt: str, max_retries: int = 3):
     """Call Gemini with structured JSON output and automatic retry on rate limits."""
-    model = _get_model(api_key)
     for attempt in range(max_retries):
         try:
-            response = model.generate_content(prompt, generation_config=_JSON_CONFIG)
+            response = _gemini_model.generate_content(prompt, generation_config=_JSON_CONFIG)
             return json.loads(response.text)
         except Exception as e:
             if "429" in str(e) and attempt < max_retries - 1:
@@ -34,7 +36,7 @@ def _call_gemini(prompt: str, api_key: str, max_retries: int = 3):
 
 
 # ── Recruiter Mode ────────────────────────────────────────────
-def analyze_resume(resume: str, job: str, api_key: str):
+def analyze_resume(resume: str, job: str):
     """Analyze a resume against a specific job description."""
     logger.info("Recruiter Mode: Starting resume analysis")
     start = time.time()
@@ -64,7 +66,7 @@ def analyze_resume(resume: str, job: str, api_key: str):
     """
 
     try:
-        result = _call_gemini(prompt, api_key)
+        result = _call_gemini(prompt)
         result.setdefault("match_score", 0)
         result.setdefault("strong_points", [])
         result.setdefault("missing_skills", [])
@@ -83,7 +85,7 @@ def analyze_resume(resume: str, job: str, api_key: str):
 
 
 # ── Candidate Mode ────────────────────────────────────────────
-def recommend_roles(resume: str, api_key: str):
+def recommend_roles(resume: str):
     """Analyze a resume and recommend best-fit job roles."""
     logger.info("Candidate Mode: Starting role recommendation")
     start = time.time()
@@ -124,7 +126,7 @@ def recommend_roles(resume: str, api_key: str):
     """
 
     try:
-        result = _call_gemini(prompt, api_key)
+        result = _call_gemini(prompt)
         result.setdefault("recommended_roles", [])
         result.setdefault("industry_fit", [])
         result.setdefault("current_strengths", [])

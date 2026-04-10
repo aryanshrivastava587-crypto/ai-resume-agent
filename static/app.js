@@ -1,20 +1,13 @@
 /* ═══════════════════════════════════════════════════════════
-   AI Resume Agent — Frontend Logic
+   AI Resume Agent — Frontend Logic (No API Key Required)
    ═══════════════════════════════════════════════════════════ */
 
 (() => {
     "use strict";
 
-    // ── DOM Elements ──
     const $ = (sel) => document.querySelector(sel);
-    const $$ = (sel) => document.querySelectorAll(sel);
 
-    const apiKeyInput = $("#apiKeyInput");
-    const saveKeyBtn = $("#saveKeyBtn");
-    const apiKeyStatus = $("#apiKeyStatus");
-    const apiKeySection = $("#apiKeySection");
-    const mainApp = $("#mainApp");
-
+    // ── DOM Elements ──
     const tabRecruiter = $("#tabRecruiter");
     const tabCandidate = $("#tabCandidate");
     const tabIndicator = $("#tabIndicator");
@@ -40,6 +33,9 @@
     const recruiterResults = $("#recruiterResults");
     const candidateResults = $("#candidateResults");
 
+    const usageText = $("#usageText");
+    const usageBadge = $("#usageBadge");
+
     let currentRecruiterFile = null;
     let currentCandidateFile = null;
 
@@ -61,53 +57,30 @@
     }
     createParticles();
 
-    // ── API Key Management ──
-    function getApiKey() {
-        return localStorage.getItem("gemini_api_key") || "";
-    }
-
-    function saveApiKey(key) {
-        localStorage.setItem("gemini_api_key", key);
-    }
-
-    function showStatus(msg, type) {
-        apiKeyStatus.textContent = msg;
-        apiKeyStatus.className = `api-key-status ${type}`;
-        apiKeyStatus.classList.remove("hidden");
-    }
-
-    function checkApiKey() {
-        const key = getApiKey();
-        if (key) {
-            apiKeyInput.value = key;
-            activateApp();
+    // ── Usage Tracking ──
+    async function fetchUsage() {
+        try {
+            const res = await fetch("/api/usage");
+            if (res.ok) {
+                const data = await res.json();
+                updateUsageDisplay(data.remaining, data.limit);
+            }
+        } catch (e) {
+            // Silently fail — usage display is optional
         }
     }
 
-    function activateApp() {
-        apiKeySection.classList.add("hidden");
-        mainApp.classList.remove("hidden");
+    function updateUsageDisplay(remaining, limit) {
+        const used = limit - remaining;
+        usageText.textContent = `${remaining}/${limit} left today`;
+        if (remaining <= 1) {
+            usageBadge.classList.add("usage-low");
+        } else {
+            usageBadge.classList.remove("usage-low");
+        }
     }
 
-    saveKeyBtn.addEventListener("click", () => {
-        const key = apiKeyInput.value.trim();
-        if (!key) {
-            showStatus("Please enter your API key.", "error");
-            return;
-        }
-        if (!key.startsWith("AIza")) {
-            showStatus("This doesn't look like a valid Gemini API key.", "error");
-            return;
-        }
-        saveApiKey(key);
-        showStatus("✅ API key saved!", "success");
-        setTimeout(activateApp, 500);
-    });
-
-    // Enter key to save
-    apiKeyInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") saveKeyBtn.click();
-    });
+    fetchUsage();
 
     // ── Tab Switching ──
     function switchTab(tab) {
@@ -215,17 +188,11 @@
 
         let color, badge, badgeClass;
         if (score >= 80) {
-            color = "#10b981";
-            badge = "🟢 Excellent Fit";
-            badgeClass = "score-high";
+            color = "#10b981"; badge = "🟢 Excellent Fit"; badgeClass = "score-high";
         } else if (score >= 50) {
-            color = "#f59e0b";
-            badge = "🟡 Moderate Fit";
-            badgeClass = "score-mid";
+            color = "#f59e0b"; badge = "🟡 Moderate Fit"; badgeClass = "score-mid";
         } else {
-            color = "#ef4444";
-            badge = "🔴 Low Fit";
-            badgeClass = "score-low";
+            color = "#ef4444"; badge = "🔴 Low Fit"; badgeClass = "score-low";
         }
 
         return `
@@ -248,6 +215,13 @@
         `;
     }
 
+    // ── Handle API response usage data ──
+    function handleUsage(data) {
+        if (data._usage) {
+            updateUsageDisplay(data._usage.remaining, data._usage.limit);
+        }
+    }
+
     // ── Recruiter Mode: Analyze ──
     analyzeBtn.addEventListener("click", async () => {
         if (!currentRecruiterFile) {
@@ -265,7 +239,6 @@
         const formData = new FormData();
         formData.append("file", currentRecruiterFile);
         formData.append("job_description", jobDescription.value.trim());
-        formData.append("api_key", getApiKey());
 
         try {
             const res = await fetch("/api/analyze", { method: "POST", body: formData });
@@ -274,6 +247,7 @@
                 throw new Error(err.detail || `Server error ${res.status}`);
             }
             const data = await res.json();
+            handleUsage(data);
             renderRecruiterResults(data);
         } catch (e) {
             showError(recruiterResults, e.message);
@@ -284,9 +258,9 @@
 
     function renderRecruiterResults(data) {
         const score = data.match_score || 0;
-        const strong = (data.strong_points || []).map(p => `<li>${escapeHtml(p)}</li>`).join("");
-        const missing = (data.missing_skills || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
-        const suggestions = (data.suggestions || []).map(s => `<div class="suggestion-item">💡 ${escapeHtml(s)}</div>`).join("");
+        const strong = (data.strong_points || []).map(p => `<li>${esc(p)}</li>`).join("");
+        const missing = (data.missing_skills || []).map(s => `<li>${esc(s)}</li>`).join("");
+        const suggestions = (data.suggestions || []).map(s => `<div class="suggestion-item">💡 ${esc(s)}</div>`).join("");
 
         recruiterResults.innerHTML = `
             ${renderScoreCircle(score)}
@@ -306,6 +280,7 @@
             </div>
         `;
         recruiterResults.classList.remove("hidden");
+        recruiterResults.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     // ── Candidate Mode: Recommend ──
@@ -320,7 +295,6 @@
 
         const formData = new FormData();
         formData.append("file", currentCandidateFile);
-        formData.append("api_key", getApiKey());
 
         try {
             const res = await fetch("/api/recommend", { method: "POST", body: formData });
@@ -329,6 +303,7 @@
                 throw new Error(err.detail || `Server error ${res.status}`);
             }
             const data = await res.json();
+            handleUsage(data);
             renderCandidateResults(data);
         } catch (e) {
             showError(candidateResults, e.message);
@@ -348,16 +323,16 @@
                 <div class="glass-card role-card">
                     <div class="role-confidence ${level}">${conf}%</div>
                     <div class="role-info">
-                        <div class="role-title">${escapeHtml(role.title || "Unknown Role")}</div>
-                        <div class="role-reason">${escapeHtml(role.reason || "")}</div>
+                        <div class="role-title">${esc(role.title || "Unknown Role")}</div>
+                        <div class="role-reason">${esc(role.reason || "")}</div>
                     </div>
                 </div>
             `;
         }).join("");
 
-        const industries = (data.industry_fit || []).map(i => `<span class="tag">${escapeHtml(i)}</span>`).join("");
-        const strengths = (data.current_strengths || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
-        const gaps = (data.skill_gaps || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
+        const industries = (data.industry_fit || []).map(i => `<span class="tag">${esc(i)}</span>`).join("");
+        const strengths = (data.current_strengths || []).map(s => `<li>${esc(s)}</li>`).join("");
+        const gaps = (data.skill_gaps || []).map(s => `<li>${esc(s)}</li>`).join("");
         const advice = data.career_advice || "No advice available.";
 
         candidateResults.innerHTML = `
@@ -382,25 +357,22 @@
 
             <div class="glass-card advice-card">
                 <h3>🧭 Career Advice</h3>
-                <p>${escapeHtml(advice)}</p>
+                <p>${esc(advice)}</p>
             </div>
         `;
         candidateResults.classList.remove("hidden");
+        candidateResults.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     // ── Helpers ──
     function showError(container, msg) {
-        container.innerHTML = `<div class="error-message">⚠️ ${escapeHtml(msg)}</div>`;
+        container.innerHTML = `<div class="error-message">⚠️ ${esc(msg)}</div>`;
         container.classList.remove("hidden");
     }
 
-    function escapeHtml(str) {
+    function esc(str) {
         const div = document.createElement("div");
         div.textContent = str;
         return div.innerHTML;
     }
-
-    // ── Init ──
-    mainApp.classList.add("hidden");
-    checkApiKey();
 })();

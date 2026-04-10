@@ -182,94 +182,77 @@ a:hover {
     text-decoration: none;
 }
 
-/* ── API Key Section ── */
-.api-key-section {
-    max-width: 580px;
-    margin: 3rem auto;
-    padding: 0 1.5rem;
-    position: relative;
-    z-index: 1;
-}
-
-.api-key-card {
-    text-align: center;
-    padding: 2.5rem;
-}
-
-.api-key-header {
+/* ── Header Right ── */
+.header-right {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    text-align: left;
-}
-
-.key-icon {
-    font-size: 2rem;
-}
-
-.api-key-header h2 {
-    font-size: 1.2rem;
-    font-weight: 600;
-}
-
-.api-key-header p {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-top: 0.2rem;
-}
-
-.api-key-input-group {
-    display: flex;
     gap: 0.75rem;
-    margin-bottom: 1rem;
 }
 
-.api-key-input-group input {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--border-glass);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    font-family: var(--font-sans);
-    font-size: 0.9rem;
-    transition: var(--transition);
-    outline: none;
-}
-
-.api-key-input-group input:focus {
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-}
-
-.api-key-input-group input::placeholder {
-    color: var(--text-muted);
-}
-
-.api-key-help {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-}
-
-.api-key-status {
-    margin-top: 1rem;
-    padding: 0.6rem 1rem;
-    border-radius: var(--radius-sm);
-    font-size: 0.85rem;
+/* ── Usage Badge ── */
+.usage-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-xl);
+    font-size: 0.72rem;
     font-weight: 500;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-glass);
+    transition: var(--transition);
 }
 
-.api-key-status.success {
-    background: var(--success-bg);
-    color: var(--success);
-    border: 1px solid rgba(16, 185, 129, 0.2);
+.usage-badge.usage-low {
+    color: var(--warning);
+    border-color: rgba(245, 158, 11, 0.3);
+    background: var(--warning-bg);
 }
 
-.api-key-status.error {
-    background: var(--danger-bg);
-    color: var(--danger);
-    border: 1px solid rgba(239, 68, 68, 0.2);
+/* ── Hero Section ── */
+.hero {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 2.5rem 1.5rem 0;
+}
+
+.hero-inner {
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+.hero-title {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+    margin-bottom: 0.6rem;
+}
+
+.gradient-text {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.hero-desc {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+@media (max-width: 600px) {
+    .hero-title {
+        font-size: 1.5rem;
+    }
+    .hero-desc {
+        font-size: 0.85rem;
+    }
 }
 
 /* ── Buttons ── */
