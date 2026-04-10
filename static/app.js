@@ -243,8 +243,14 @@
         try {
             const res = await fetch("/api/analyze", { method: "POST", body: formData });
             if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || `Server error ${res.status}`);
+                let errText = `Server error ${res.status}`;
+                try {
+                    const err = await res.json();
+                    errText = err.detail || errText;
+                } catch (jsonErr) {
+                    // response wasn't JSON
+                }
+                throw new Error(errText);
             }
             const data = await res.json();
             handleUsage(data);
@@ -299,8 +305,14 @@
         try {
             const res = await fetch("/api/recommend", { method: "POST", body: formData });
             if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || `Server error ${res.status}`);
+                let errText = `Server error ${res.status}`;
+                try {
+                    const err = await res.json();
+                    errText = err.detail || errText;
+                } catch (jsonErr) {
+                    // response wasn't JSON
+                }
+                throw new Error(errText);
             }
             const data = await res.json();
             handleUsage(data);

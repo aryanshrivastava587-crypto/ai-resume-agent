@@ -20,19 +20,16 @@ _gemini_model = genai.GenerativeModel("gemini-2.0-flash")
 _JSON_CONFIG = genai.GenerationConfig(response_mime_type="application/json")
 
 
-def _call_gemini(prompt: str, max_retries: int = 3):
-    """Call Gemini with structured JSON output and automatic retry on rate limits."""
-    for attempt in range(max_retries):
-        try:
-            response = _gemini_model.generate_content(prompt, generation_config=_JSON_CONFIG)
-            return json.loads(response.text)
-        except Exception as e:
-            if "429" in str(e) and attempt < max_retries - 1:
-                wait_time = (attempt + 1) * 15
-                logger.warning(f"Rate limit hit, retrying in {wait_time}s (attempt {attempt + 2}/{max_retries})")
-                time.sleep(wait_time)
-            else:
-                raise
+def _call_gemini(prompt: str):
+    """Call Gemini with structured JSON output."""
+    try:
+        response = _gemini_model.generate_content(prompt, generation_config=_JSON_CONFIG)
+        return json.loads(response.text)
+    except Exception as e:
+        if "429" in str(e) or "quota" in str(e).lower():
+            logger.warning("Gemini API rate limit (429) hit.")
+            raise Exception("Google API Rate Limit Reached. Please wait a minute and try again.")
+        raise
 
 
 # ── Recruiter Mode ────────────────────────────────────────────
