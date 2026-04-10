@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first (Docker cache optimization — dependencies only rebuild if requirements change)
+# Copy requirements first (Docker cache optimization)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -19,8 +19,8 @@ COPY . .
 # Ensure the data directories exist
 RUN mkdir -p data/resumes data/jobs
 
-# Expose ports for FastAPI and Streamlit
-EXPOSE 8000 8501
+# Expose port for FastAPI
+EXPOSE 8000
 
-# Default: run FastAPI backend
+# Run FastAPI backend (serves both API + frontend)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
