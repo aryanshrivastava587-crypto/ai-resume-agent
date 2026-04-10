@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import json
 import tempfile
+import time
 
 # ── Page Config ──
 st.set_page_config(page_title="AI Resume Agent", page_icon="🤖", layout="centered")
@@ -25,7 +26,7 @@ def load_services():
     """Load heavy ML models once and cache them across sessions."""
     import google.generativeai as genai
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     
     from sentence_transformers import SentenceTransformer
     embed_model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -93,11 +94,20 @@ def retrieve_relevant(query, chunks, embeddings, k=5):
     return [chunks[i] for i in I[0] if i < len(chunks)]
 
 
-def call_gemini(prompt):
-    """Call Gemini with structured JSON output."""
+def call_gemini(prompt, max_retries=3):
+    """Call Gemini with structured JSON output and automatic retry on rate limits."""
     config = genai_lib.GenerationConfig(response_mime_type="application/json")
-    response = gemini_model.generate_content(prompt, generation_config=config)
-    return json.loads(response.text)
+    for attempt in range(max_retries):
+        try:
+            response = gemini_model.generate_content(prompt, generation_config=config)
+            return json.loads(response.text)
+        except Exception as e:
+            if "429" in str(e) and attempt < max_retries - 1:
+                wait_time = (attempt + 1) * 20  # 20s, 40s, 60s
+                st.warning(f"⏳ Rate limit hit. Retrying in {wait_time}s... (attempt {attempt + 2}/{max_retries})")
+                time.sleep(wait_time)
+            else:
+                raise
 
 
 # ── Custom CSS ──
