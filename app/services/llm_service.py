@@ -35,15 +35,13 @@ def _call_gemini(prompt: str):
 # ── Recruiter Mode ────────────────────────────────────────────
 def analyze_resume(resume: str, job: str):
     """Analyze a resume against a specific job description."""
-    logger.info("Recruiter Mode: Starting resume analysis")
+    logger.info("Recruiter Mode: Starting resume analysis (direct fast-path)")
     start = time.time()
 
-    chunks, embeddings = create_embeddings(resume)
-    index = build_index(embeddings)
-    relevant_chunks = retrieve(job, chunks, index)
-    resume_context = "\n\n".join(relevant_chunks)
+    # Pass the full resume directly to Gemini (no RAG needed since context is 1M tokens)
+    resume_context = resume.strip() if resume else "No readable text found."
 
-    logger.info(f"RAG retrieval completed in {time.time() - start:.3f}s")
+    logger.info(f"Context prepared in {time.time() - start:.3f}s")
 
     prompt = f"""
     You are an expert recruiter and resume analyzer capable of handling ANY industry, domain, or job title.
@@ -84,13 +82,13 @@ def analyze_resume(resume: str, job: str):
 # ── Candidate Mode ────────────────────────────────────────────
 def recommend_roles(resume: str):
     """Analyze a resume and recommend best-fit job roles."""
-    logger.info("Candidate Mode: Starting role recommendation")
+    logger.info("Candidate Mode: Starting role recommendation (direct fast-path)")
     start = time.time()
 
-    chunks, embeddings = create_embeddings(resume)
-    resume_context = "\n\n".join(chunks)
+    # Pass the full resume directly to Gemini (no RAG needed since context is 1M tokens)
+    resume_context = resume.strip() if resume else "No readable text found."
 
-    logger.info(f"Resume processed in {time.time() - start:.3f}s")
+    logger.info(f"Context prepared in {time.time() - start:.3f}s")
 
     prompt = f"""
     You are a world-class career advisor and talent strategist with deep knowledge across ALL industries — tech, finance, healthcare, marketing, design, operations, and more.
