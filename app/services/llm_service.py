@@ -1,5 +1,4 @@
 import logging
-import os
 import json
 import time
 
@@ -8,32 +7,34 @@ from app.services.rag_service import create_embeddings, build_index, retrieve
 
 logger = logging.getLogger(__name__)
 
-# ── Gemini Configuration (server-side key) ──
-_api_key = os.getenv("GEMINI_API_KEY")
-if _api_key:
-    genai.configure(api_key=_api_key)
-    logger.info("Gemini API configured with server key.")
-else:
-    logger.warning("GEMINI_API_KEY not set — LLM calls will fail.")
-
-_gemini_model = genai.GenerativeModel("gemini-2.0-flash")
 _JSON_CONFIG = genai.GenerationConfig(response_mime_type="application/json")
 
 
-def _call_gemini(prompt: str):
-    """Call Gemini with structured JSON output."""
-    try:
-        response = _gemini_model.generate_content(prompt, generation_config=_JSON_CONFIG)
-        return json.loads(response.text)
-    except Exception as e:
-        if "429" in str(e) or "quota" in str(e).lower():
-            logger.warning("Gemini API rate limit (429) hit.")
-            raise Exception("Google API Rate Limit Reached. Please wait a minute and try again.")
-        raise
+def _call_gemini(prompt: str, api_key: str, max_retries: int = 3):
+    """Call Gemini with structured JSON output and the user's API key."""
+    genai.configure(api_key=api_key)
+    for attempt in range(max_retries):
+        try:
+            _gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+            response = _gemini_model.generate_content(prompt, generation_config=_JSON_CONFIG)
+            return json.loads(response.text)
+        except Exception as e:
+            err_str = str(e).lower()
+            if "429" in err_str or "quota" in err_str:
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 3
+                    logger.warning(f"Rate limit hit! Waiting {wait_time}s to retry... (attempt {attempt+2}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error("All retries exhausted.")
+                    raise Exception("Google API Rate Limit Reached for your key. Please try again later.")
+            else:
+                raise
 
 
 # ── Recruiter Mode ────────────────────────────────────────────
-def analyze_resume(resume: str, job: str):
+def analyze_resume(resume: str, job: str, api_key: str):
     """Analyze a resume against a specific job description."""
     logger.info("Recruiter Mode: Starting resume analysis (direct fast-path)")
     start = time.time()
@@ -61,7 +62,7 @@ def analyze_resume(resume: str, job: str):
     """
 
     try:
-        result = _call_gemini(prompt)
+        result = _call_gemini(prompt, api_key)
         result.setdefault("match_score", 0)
         result.setdefault("strong_points", [])
         result.setdefault("missing_skills", [])
@@ -80,7 +81,7 @@ def analyze_resume(resume: str, job: str):
 
 
 # ── Candidate Mode ────────────────────────────────────────────
-def recommend_roles(resume: str):
+def recommend_roles(resume: str, api_key: str):
     """Analyze a resume and recommend best-fit job roles."""
     logger.info("Candidate Mode: Starting role recommendation (direct fast-path)")
     start = time.time()
@@ -121,7 +122,7 @@ def recommend_roles(resume: str):
     """
 
     try:
-        result = _call_gemini(prompt)
+        result = _call_gemini(prompt, api_key)
         result.setdefault("recommended_roles", [])
         result.setdefault("industry_fit", [])
         result.setdefault("current_strengths", [])

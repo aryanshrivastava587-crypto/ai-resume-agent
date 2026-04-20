@@ -3,21 +3,12 @@ import logging
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 from app.services.parser import extract_text_from_pdf
 from app.services.llm_service import analyze_resume, recommend_roles
-from app.rate_limiter import rate_limiter
 
 logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = "data/resumes"
 
 router = APIRouter(prefix="/api")
-
-
-def _get_client_ip(request: Request) -> str:
-    """Extract client IP, accounting for reverse proxies."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host
 
 
 async def _save_upload(file: UploadFile) -> str:
@@ -36,31 +27,13 @@ def health():
     return {"message": "AI Resume Agent Running", "version": "2.0.0"}
 
 
-@router.get("/usage")
-def usage(request: Request):
-    """Get current rate limit status for the client."""
-    ip = _get_client_ip(request)
-    status = rate_limiter.get_status(ip)
-    return status
-
-
 @router.post("/analyze")
 async def analyze(
     request: Request,
     file: UploadFile = File(...),
-    job_description: str = Form(...)
+    job_description: str = Form(...),
+    api_key: str = Form(...)
 ):
-    # ── Rate limit check ──
-    ip = _get_client_ip(request)
-    limit = rate_limiter.check(ip)
-    if not limit["allowed"]:
-        hours = limit["reset_in_seconds"] // 3600
-        mins = (limit["reset_in_seconds"] % 3600) // 60
-        raise HTTPException(
-            status_code=429,
-            detail=f"Daily limit reached ({limit['limit']} analyses/day). Resets in {hours}h {mins}m. Come back tomorrow!"
-        )
-
     try:
         file_location = await _save_upload(file)
         resume = extract_text_from_pdf(file_location)
@@ -68,8 +41,10 @@ async def analyze(
         if not job_description or not job_description.strip():
             raise HTTPException(status_code=400, detail="Job description is required.")
 
-        result = analyze_resume(resume, job_description)
-        result["_usage"] = {"remaining": limit["remaining"], "limit": limit["limit"]}
+        if not api_key or not api_key.strip():
+            raise HTTPException(status_code=400, detail="API key is required.")
+
+        result = analyze_resume(resume, job_description, api_key.strip())
         return result
 
     except HTTPException:
@@ -82,26 +57,21 @@ async def analyze(
 @router.post("/recommend")
 async def recommend(
     request: Request,
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    api_key: str = Form(...)
 ):
-    # ── Rate limit check ──
-    ip = _get_client_ip(request)
-    limit = rate_limiter.check(ip)
-    if not limit["allowed"]:
-        hours = limit["reset_in_seconds"] // 3600
-        mins = (limit["reset_in_seconds"] % 3600) // 60
-        raise HTTPException(
-            status_code=429,
-            detail=f"Daily limit reached ({limit['limit']} analyses/day). Resets in {hours}h {mins}m. Come back tomorrow!"
-        )
-
     try:
         file_location = await _save_upload(file)
         resume = extract_text_from_pdf(file_location)
-        result = recommend_roles(resume)
-        result["_usage"] = {"remaining": limit["remaining"], "limit": limit["limit"]}
+
+        if not api_key or not api_key.strip():
+            raise HTTPException(status_code=400, detail="API key is required.")
+
+        result = recommend_roles(resume, api_key.strip())
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in /api/recommend: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -8,6 +8,11 @@
     const $ = (sel) => document.querySelector(sel);
 
     // ── DOM Elements ──
+    const authScreen = $("#authScreen");
+    const mainApp = $("#mainApp");
+    const geminiApiKeyAuth = $("#geminiApiKeyAuth");
+    const btnEnterApp = $("#btnEnterApp");
+
     const tabRecruiter = $("#tabRecruiter");
     const tabCandidate = $("#tabCandidate");
     const tabIndicator = $("#tabIndicator");
@@ -33,8 +38,7 @@
     const recruiterResults = $("#recruiterResults");
     const candidateResults = $("#candidateResults");
 
-    const usageText = $("#usageText");
-    const usageBadge = $("#usageBadge");
+    let currentApiKeyValue = localStorage.getItem("gemini_api_key") || "";
 
     let currentRecruiterFile = null;
     let currentCandidateFile = null;
@@ -57,30 +61,35 @@
     }
     createParticles();
 
-    // ── Usage Tracking ──
-    async function fetchUsage() {
-        try {
-            const res = await fetch("/api/usage");
-            if (res.ok) {
-                const data = await res.json();
-                updateUsageDisplay(data.remaining, data.limit);
-            }
-        } catch (e) {
-            // Silently fail — usage display is optional
-        }
-    }
-
-    function updateUsageDisplay(remaining, limit) {
-        const used = limit - remaining;
-        usageText.textContent = `${remaining}/${limit} left today`;
-        if (remaining <= 1) {
-            usageBadge.classList.add("usage-low");
+    // ── Auth Logic ──
+    function checkAuth() {
+        if (currentApiKeyValue) {
+            authScreen.style.display = "none";
+            mainApp.classList.remove("hidden");
+            // Optional: reset tabs or prep UI here if needed
         } else {
-            usageBadge.classList.remove("usage-low");
+            authScreen.style.display = "block";
+            mainApp.classList.add("hidden");
         }
     }
 
-    fetchUsage();
+    btnEnterApp.addEventListener("click", () => {
+        const val = geminiApiKeyAuth.value.trim();
+        if (!val) {
+            // Shake animation or simple alert
+            geminiApiKeyAuth.style.borderColor = "var(--danger)";
+            setTimeout(() => geminiApiKeyAuth.style.borderColor = "rgba(99,102,241,0.3)", 1000);
+            return;
+        }
+        currentApiKeyValue = val;
+        localStorage.setItem("gemini_api_key", currentApiKeyValue);
+        checkAuth();
+    });
+
+    // Run auth check on load
+    checkAuth();
+
+    // Usage tracking removed as each user provides their own key
 
     // ── Tab Switching ──
     function switchTab(tab) {
@@ -215,15 +224,13 @@
         `;
     }
 
-    // ── Handle API response usage data ──
-    function handleUsage(data) {
-        if (data._usage) {
-            updateUsageDisplay(data._usage.remaining, data._usage.limit);
-        }
-    }
+    // Usage data handling removed
 
-    // ── Recruiter Mode: Analyze ──
     analyzeBtn.addEventListener("click", async () => {
+        if (!currentApiKeyValue) {
+            showError(recruiterResults, "API Key missing. Please refresh and enter your key.");
+            return;
+        }
         if (!currentRecruiterFile) {
             showError(recruiterResults, "Please upload a resume PDF first.");
             return;
@@ -239,6 +246,7 @@
         const formData = new FormData();
         formData.append("file", currentRecruiterFile);
         formData.append("job_description", jobDescription.value.trim());
+        formData.append("api_key", currentApiKeyValue);
 
         try {
             const res = await fetch("/api/analyze", { method: "POST", body: formData });
@@ -253,7 +261,6 @@
                 throw new Error(errText);
             }
             const data = await res.json();
-            handleUsage(data);
             renderRecruiterResults(data);
         } catch (e) {
             showError(recruiterResults, e.message);
@@ -291,6 +298,10 @@
 
     // ── Candidate Mode: Recommend ──
     recommendBtn.addEventListener("click", async () => {
+        if (!currentApiKeyValue) {
+            showError(candidateResults, "API Key missing. Please refresh and enter your key.");
+            return;
+        }
         if (!currentCandidateFile) {
             showError(candidateResults, "Please upload your resume PDF first.");
             return;
@@ -301,6 +312,7 @@
 
         const formData = new FormData();
         formData.append("file", currentCandidateFile);
+        formData.append("api_key", currentApiKeyValue);
 
         try {
             const res = await fetch("/api/recommend", { method: "POST", body: formData });
@@ -315,7 +327,6 @@
                 throw new Error(errText);
             }
             const data = await res.json();
-            handleUsage(data);
             renderCandidateResults(data);
         } catch (e) {
             showError(candidateResults, e.message);

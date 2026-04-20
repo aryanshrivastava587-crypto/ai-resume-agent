@@ -7,33 +7,27 @@ import time
 # ── Page Config ──
 st.set_page_config(page_title="AI Resume Agent", page_icon="🤖", layout="centered")
 
-# ── Load API Key (Streamlit Cloud uses st.secrets, local uses .env) ──
-api_key = None
-try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-except Exception:
-    from dotenv import load_dotenv
-    load_dotenv()
-    api_key = os.getenv("GEMINI_API_KEY")
-
-if not api_key:
-    st.error("⚠️ GEMINI_API_KEY not found. Please set it in Streamlit Secrets or a .env file.")
+# ── Load API Key from User Input ──
+with st.sidebar:
+    st.header("Settings")
+    user_api_key = st.text_input("Google Gemini API Key", type="password", placeholder="Enter your API Key")
+    st.caption("Get an API key from Google AI Studio. We do not store your key.")
+    
+if not user_api_key:
+    st.warning("⚠️ Please enter your Gemini API Key in the sidebar to continue.")
     st.stop()
 
 # ── Import services (lazy load heavy libraries) ──
 @st.cache_resource
-def load_services():
+def load_embed_model():
     """Load heavy ML models once and cache them across sessions."""
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash")
-    
     from sentence_transformers import SentenceTransformer
     embed_model = SentenceTransformer('all-MiniLM-L6-v2')
-    
-    return genai, model, embed_model
+    return embed_model
 
-genai_lib, gemini_model, embed_model = load_services()
+embed_model = load_embed_model()
+
+import google.generativeai as genai
 
 # ── Helper Functions ──
 import numpy as np
@@ -95,15 +89,18 @@ def retrieve_relevant(query, chunks, embeddings, k=5):
 
 
 def call_gemini(prompt, max_retries=3):
-    """Call Gemini with structured JSON output and automatic retry on rate limits."""
-    config = genai_lib.GenerationConfig(response_mime_type="application/json")
+    """Call Gemini with structured JSON output."""
+    genai.configure(api_key=user_api_key)
+    config = genai.GenerationConfig(response_mime_type="application/json")
+    
     for attempt in range(max_retries):
         try:
-            response = gemini_model.generate_content(prompt, generation_config=config)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt, generation_config=config)
             return json.loads(response.text)
         except Exception as e:
             if "429" in str(e) and attempt < max_retries - 1:
-                wait_time = (attempt + 1) * 20  # 20s, 40s, 60s
+                wait_time = (attempt + 1) * 3
                 st.warning(f"⏳ Rate limit hit. Retrying in {wait_time}s... (attempt {attempt + 2}/{max_retries})")
                 time.sleep(wait_time)
             else:
