@@ -10,6 +10,7 @@
     // ── DOM Elements ──
     const authScreen = $("#authScreen");
     const mainApp = $("#mainApp");
+    const heroSection = $("#heroSection");
     const geminiApiKeyAuth = $("#geminiApiKeyAuth");
     const btnEnterApp = $("#btnEnterApp");
 
@@ -66,10 +67,11 @@
         if (currentApiKeyValue) {
             authScreen.style.display = "none";
             mainApp.classList.remove("hidden");
-            // Optional: reset tabs or prep UI here if needed
+            heroSection.classList.remove("hidden");
         } else {
             authScreen.style.display = "block";
             mainApp.classList.add("hidden");
+            heroSection.classList.add("hidden");
         }
     }
 
