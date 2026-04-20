@@ -15,7 +15,7 @@ def _call_gemini(prompt: str, api_key: str, max_retries: int = 3):
     genai.configure(api_key=api_key)
     for attempt in range(max_retries):
         try:
-            _gemini_model = genai.GenerativeModel("gemini-1.5-flash-8b")
+            _gemini_model = genai.GenerativeModel("gemini-flash-latest")
             response = _gemini_model.generate_content(prompt, generation_config=_JSON_CONFIG)
             return json.loads(response.text)
         except Exception as e:
