@@ -19,7 +19,7 @@ def _call_gemini(prompt: str, api_key: str, max_retries: int = 3):
             response = _gemini_model.generate_content(
                 prompt, 
                 generation_config=_JSON_CONFIG,
-                request_options={"retry": None, "timeout": 20}
+                request_options={"retry": None, "timeout": 60}
             )
             return json.loads(response.text)
         except Exception as e:
@@ -58,11 +58,19 @@ def analyze_resume(resume: str, job: str, api_key: str):
     Resume Snippets (from candidate):
     {resume_context}
     
-    Analyze the match. Do not rely on simple keyword matching. 
-    1. Determine a contextual match_score (0-100).
-    2. Extract strong_points based on inferred skills.
-    3. Identify missing_skills by truly understanding the job requirements.
-    4. Provide actionable suggestions to improve the resume.
+    Analyze the match. Be highly concise and output extremely quickly.
+    1. "match_score": Determine a contextual match_score (0-100).
+    2. "strong_points": Extract max 3 strong points. Keep sentences very short.
+    3. "missing_skills": Identify max 3 missing skills.
+    4. "suggestions": Provide exactly 2 short, actionable suggestions.
+    
+    Return the result as a JSON object with this exact structure:
+    {{
+        "match_score": 85,
+        "strong_points": ["Point 1", "Point 2"],
+        "missing_skills": ["Skill 1", "Skill 2"],
+        "suggestions": ["Suggestion 1", "Suggestion 2"]
+    }}
     """
 
     try:
@@ -103,14 +111,14 @@ def recommend_roles(resume: str, api_key: str):
     Resume:
     {resume_context}
 
-    Based on a deep contextual understanding of their skills, projects, education, and experience, provide:
+    Based on a deep contextual understanding of their skills, projects, education, and experience, provide concise answers:
 
-    1. "recommended_roles": A list of 5 specific job titles they should apply for (e.g., "Junior Data Analyst", "Backend Developer Intern", "ML Engineer"). Be specific, not generic.
-    2. "confidence": For each role, a confidence percentage (0-100) of how well their resume fits that role RIGHT NOW.
-    3. "industry_fit": Top 3 industries where this candidate would thrive (e.g., "FinTech", "EdTech", "Healthcare AI").
-    4. "current_strengths": What this candidate is already strong at.
-    5. "skill_gaps": What skills they should learn ASAP to become more employable.
-    6. "career_advice": 3-4 lines of honest, actionable career advice for this person.
+    1. "recommended_roles": A list of 3 specific job titles they should apply for.
+    2. "confidence": For each role, a confidence percentage (0-100).
+    3. "industry_fit": Top 2 industries where this candidate would thrive.
+    4. "current_strengths": Max 2 bullet points.
+    5. "skill_gaps": Max 2 bullet points.
+    6. "career_advice": Exactly 1-2 lines of honest, actionable career advice.
 
     Return the result as a JSON object with this exact structure:
     {{
