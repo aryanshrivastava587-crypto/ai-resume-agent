@@ -24,10 +24,10 @@ def _call_gemini(prompt: str, api_key: str, max_retries: int = 3):
             return json.loads(response.text)
         except Exception as e:
             err_str = str(e).lower()
-            if "429" in err_str or "quota" in err_str:
+            if "429" in err_str or "quota" in err_str or "503" in err_str or "500" in err_str:
                 if attempt < max_retries - 1:
                     wait_time = (attempt + 1) * 3
-                    logger.warning(f"Rate limit hit! Waiting {wait_time}s to retry... (attempt {attempt+2}/{max_retries})")
+                    logger.warning(f"API busy or Rate limit hit! Waiting {wait_time}s to retry... (attempt {attempt+2}/{max_retries})")
                     time.sleep(wait_time)
                     continue
                 else:
